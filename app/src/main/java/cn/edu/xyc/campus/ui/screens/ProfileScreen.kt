@@ -1,0 +1,638 @@
+package cn.edu.xyc.campus.ui.screens
+
+import android.content.Context
+import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Code
+import androidx.compose.material.icons.rounded.Alarm
+import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import cn.edu.xyc.campus.R
+import cn.edu.xyc.campus.data.local.AvatarStore
+import cn.edu.xyc.campus.data.local.CollegeStore
+import cn.edu.xyc.campus.data.local.ScheduleCache
+import cn.edu.xyc.campus.data.model.ProfileCard
+import cn.edu.xyc.campus.data.remote.JwxtApi
+import cn.edu.xyc.campus.data.remote.JwxtResult
+import cn.edu.xyc.campus.data.remote.PortalApi
+import cn.edu.xyc.campus.data.remote.XgApi
+import cn.edu.xyc.campus.ui.theme.ThemeModeStore
+import cn.edu.xyc.campus.widget.TodayWidget
+import androidx.glance.appwidget.updateAll
+import kotlinx.coroutines.launch
+import java.io.File
+
+/** 爱发电赞助链接（点「赞助开发者」跳转浏览器打开） */
+private const val AFDIAN_URL = "https://afdian.com/a/octmicy?utm_source=copylink&utm_medium=link"
+
+@Composable
+fun ProfileScreen(onLogout: () -> Unit) {
+    val context = LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var loading by rememberSaveable { mutableStateOf(true) }
+    var error by rememberSaveable { mutableStateOf<String?>(null) }
+    var profile by remember { mutableStateOf<ProfileCard?>(null) }
+    var reloadKey by rememberSaveable { mutableStateOf(0) }
+    // 学院名称：优先本机缓存（学工同步结果），为空时由下方 LaunchedEffect 后台拉取
+    var college by remember { mutableStateOf(CollegeStore.get(context)) }
+    var showFeedback by rememberSaveable { mutableStateOf(false) }
+    var showTheme by rememberSaveable { mutableStateOf(false) }
+    var showThemeMode by rememberSaveable { mutableStateOf(false) }
+    var showReminder by rememberSaveable { mutableStateOf(false) }
+    var avatarVersion by rememberSaveable { mutableStateOf(0) }
+    val versionName = remember {
+        runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+        }.getOrNull() ?: ""
+    }
+    var checkingUpdate by rememberSaveable { mutableStateOf(false) }
+    var manualUpdate by remember { mutableStateOf<cn.edu.xyc.campus.data.remote.UpdateChecker.UpdateInfo?>(null) }
+    val checkUpdate: () -> Unit = {
+        if (!checkingUpdate) {
+            checkingUpdate = true
+            scope.launch {
+                val info = cn.edu.xyc.campus.data.remote.UpdateChecker.checkLatest()
+                checkingUpdate = false
+                when {
+                    info == null -> Toast.makeText(context, "检查失败，请稍后再试", Toast.LENGTH_SHORT).show()
+                    !cn.edu.xyc.campus.data.remote.UpdateChecker.isNewer(info.version, versionName) ->
+                        Toast.makeText(context, "已是最新版本 v$versionName", Toast.LENGTH_SHORT).show()
+                    else -> manualUpdate = info
+                }
+            }
+        }
+    }
+
+    // 系统相册选图（Photo Picker，旧系统自动回退到系统文件选择器）
+    val pickAvatar = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                AvatarStore.save(context, uri)
+                avatarVersion++
+            }
+        }
+    }
+    val onPickAvatar: () -> Unit = {
+        pickAvatar.launch(
+            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+        )
+    }
+
+    LaunchedEffect(reloadKey) {
+        // 命中预取缓存零等待
+        ScheduleCache.profileData["PROFILE"]?.let {
+            profile = it
+            loading = false
+            return@LaunchedEffect
+        }
+        if (!ScheduleCache.tryMark("PROFILE")) return@LaunchedEffect
+        loading = true
+        error = null
+        when (val r = JwxtApi.getProfile()) {
+            is JwxtResult.Ok -> {
+                ScheduleCache.profileData["PROFILE"] = r.data
+                profile = r.data
+            }
+            is JwxtResult.SessionExpired -> error = r.message
+            is JwxtResult.Failed -> error = r.message
+        }
+        ScheduleCache.unmark("PROFILE")
+        loading = false
+    }
+
+    // 学院名称后台同步：本机未缓存时从学工系统拉取，成功后落盘并刷新 UI；失败静默不阻塞渲染
+    LaunchedEffect(Unit) {
+        if (college.isEmpty()) {
+            val fetched = XgApi.fetchCollege()
+            android.util.Log.d("XycApp", "XgApi college: $fetched")
+            if (!fetched.isNullOrEmpty()) {
+                CollegeStore.set(context, fetched)
+                college = fetched
+            }
+        }
+    }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            "我的",
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(bottom = 16.dp),
+        )
+
+        when {
+            loading -> Box(Modifier.height(240.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+            error != null -> ErrorPane(error!!, onRetry = { reloadKey++ })
+            else -> {
+                val card = profile
+                if (card == null) {
+                    ErrorPane("数据为空", onRetry = { reloadKey++ })
+                } else {
+                    val info = card.info
+                    Avatar(size = 84.dp, version = avatarVersion, onClick = onPickAvatar)
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "点击头像可更换",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(info.name.ifEmpty { "未知" }, style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        "学号 ${info.studentId}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(20.dp))
+
+                    Card(
+                        Modifier.fillMaxSize(),
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Column(Modifier.padding(16.dp)) {
+                            // 学院优先用学工同步结果（college），为空时回退学籍 xsxx（card.college，通常为空）
+                            val collegeText = college.ifEmpty { card.college }
+                            InfoRow("班级", info.className)
+                            InfoRow("专业", info.major)
+                            InfoRow("年级", info.gradeYear)
+                            if (collegeText.isNotEmpty()) InfoRow("学院", collegeText)
+                        }
+                    }
+
+                    // ---- 主题外观 ----
+                    Spacer(Modifier.height(20.dp))
+                    Row(
+                        Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { showTheme = true }
+                            .padding(horizontal = 4.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Rounded.Palette,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text("主题外观", style = MaterialTheme.typography.bodyMedium)
+                    }
+
+                    // ---- 课程提醒（上课前 X 分钟系统通知）----
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { showReminder = true }
+                            .padding(horizontal = 4.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Rounded.Alarm,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text("课程提醒", style = MaterialTheme.typography.bodyMedium)
+                    }
+
+                    // ---- 深色模式（跟随系统/浅色/深色，应用内选择优先于系统夜间模式）----
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(10.dp))
+                            .clickable { showThemeMode = true }
+                            .padding(horizontal = 4.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Rounded.DarkMode,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text("深色模式", style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            when (ThemeModeStore.mode.value) {
+                                // 跟随系统时附带当前实际生效的模式，避免"手机浅色却只见深色字样"的困惑
+                                ThemeModeStore.Mode.FOLLOW ->
+                                    "跟随系统（当前${if (ThemeModeStore.isSystemDark(context)) "深色" else "浅色"}）"
+                                ThemeModeStore.Mode.LIGHT -> "浅色"
+                                ThemeModeStore.Mode.DARK -> "深色"
+                            },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    // ---- 项目地址 + 赞助 ----
+                    Spacer(Modifier.height(8.dp))
+                    Card(
+                        Modifier.fillMaxSize(),
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                            Text(
+                                "支持项目",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            Row(
+                                Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable {
+                                        runCatching {
+                                            context.startActivity(
+                                                Intent(
+                                                    Intent.ACTION_VIEW,
+                                                    Uri.parse("https://github.com/octmicy/OriCampus"),
+                                                ),
+                                            )
+                                        }
+                                    }
+                                    .padding(horizontal = 4.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Code,
+                                    contentDescription = "GitHub",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                    "GitHub：octmicy/OriCampus",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            Spacer(Modifier.height(2.dp))
+                            Row {
+                                Button(
+                                    onClick = {
+                                        runCatching {
+                                            context.startActivity(
+                                                Intent(
+                                                    Intent.ACTION_VIEW,
+                                                    Uri.parse(AFDIAN_URL),
+                                                ),
+                                            )
+                                        }
+                                    },
+                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                        horizontal = 18.dp,
+                                        vertical = 8.dp,
+                                    ),
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.Favorite,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("赞助开发者", style = MaterialTheme.typography.labelLarge)
+                                }
+                                Spacer(Modifier.width(10.dp))
+                                OutlinedButton(
+                                    onClick = { showFeedback = !showFeedback },
+                                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                                        horizontal = 16.dp,
+                                        vertical = 8.dp,
+                                    ),
+                                ) {
+                                    Text("问题反馈", style = MaterialTheme.typography.labelLarge)
+                                }
+                            }
+
+                            // ---- 问题反馈（点开才展开）----
+                            if (showFeedback) {
+                                Spacer(Modifier.height(12.dp))
+                                Box(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .height(1.dp)
+                                        .background(MaterialTheme.colorScheme.outlineVariant),
+                                )
+                                Spacer(Modifier.height(10.dp))
+                                Text(
+                                    "遇到问题或有建议？到仓库提 Issue。不知道怎么描述？点「复制模板」照着填就行。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            runCatching {
+                                                context.startActivity(
+                                                    Intent(
+                                                        Intent.ACTION_VIEW,
+                                                        Uri.parse("https://github.com/octmicy/OriCampus/issues"),
+                                                    ),
+                                                )
+                                            }
+                                        },
+                                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                    ) { Text("提 Issue", style = MaterialTheme.typography.labelMedium) }
+                                    OutlinedButton(
+                                        onClick = {
+                                            runCatching {
+                                                context.startActivity(
+                                                    Intent(
+                                                        Intent.ACTION_VIEW,
+                                                        Uri.parse("https://github.com/octmicy/OriCampus/issues"),
+                                                    ),
+                                                )
+                                            }
+                                        },
+                                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                    ) { Text("提 Issue", style = MaterialTheme.typography.labelMedium) }
+                                    val clipboard = LocalClipboardManager.current
+                                    OutlinedButton(
+                                        onClick = {
+                                            clipboard.setText(AnnotatedString(feedbackTemplate(context)))
+                                            android.widget.Toast.makeText(context, "模板已复制，粘贴到 Issue 里照着填即可", android.widget.Toast.LENGTH_LONG).show()
+                                        },
+                                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                    ) { Text("复制模板", style = MaterialTheme.typography.labelMedium) }
+                                }
+                            }
+                        }
+                    }
+
+                    // ---- 退出登录 / 检查更新（页面最底部）----
+                    Spacer(Modifier.height(28.dp))
+                    Row {
+                        OutlinedButton(
+                            onClick = {
+                                PortalApi.clearSession()
+                                JwxtApi.resetSso()
+                                onLogout()
+                            },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error,
+                            ),
+                        ) { Text("退出登录") }
+                        Spacer(Modifier.width(12.dp))
+                        OutlinedButton(
+                            onClick = checkUpdate,
+                            enabled = !checkingUpdate,
+                        ) {
+                            if (checkingUpdate) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(14.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                                Spacer(Modifier.width(6.dp))
+                            }
+                            Text(if (checkingUpdate) "检查中…" else "检查更新")
+                        }
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        "学籍数据来自学校教务系统，仅在本机展示",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    Spacer(Modifier.height(20.dp))
+                    Text(
+                        "原点助手 v$versionName",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+        }
+    }
+
+    if (showReminder) {
+        ReminderDialog(onDismiss = { showReminder = false })
+    }
+
+    if (showTheme) {
+        ThemeScreenDialog(onDismiss = { showTheme = false })
+    }
+
+    // 深浅色模式切换弹窗（跟随系统/浅色/深色）
+    val setThemeMode: (ThemeModeStore.Mode) -> Unit = { m ->
+        ThemeModeStore.set(context, m)
+        scope.launch { runCatching { TodayWidget().updateAll(context) } }
+    }
+
+    if (showThemeMode) {
+        AlertDialog(
+            onDismissRequest = { showThemeMode = false },
+            title = { Text("深色模式") },
+            text = {
+                Column {
+                    ThemeModeStore.Mode.entries.forEach { m ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable {
+                                    setThemeMode(m)
+                                    showThemeMode = false
+                                }
+                                .padding(horizontal = 4.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = ThemeModeStore.mode.value == m,
+                                onClick = {
+                                    setThemeMode(m)
+                                    showThemeMode = false
+                                },
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                when (m) {
+                                    // 跟随系统动态标注当前系统实际模式（而非固定的"夜间模式"字样）
+                                    ThemeModeStore.Mode.FOLLOW ->
+                                        "跟随系统（当前${if (ThemeModeStore.isSystemDark(context)) "深色" else "浅色"}）"
+                                    ThemeModeStore.Mode.LIGHT -> "浅色"
+                                    ThemeModeStore.Mode.DARK -> "深色"
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showThemeMode = false }) { Text("取消") }
+            },
+        )
+    }
+
+    manualUpdate?.let { info ->
+        cn.edu.xyc.campus.ui.components.UpdateDialog(
+            version = info.version,
+            notes = info.notes,
+            downloadUrl = info.downloadUrl,
+            proxyPrefix = info.proxyPrefix,
+            onDismiss = { manualUpdate = null },
+        )
+    }
+}
+
+/** 反馈模板：新手也能照着填，App 版本自动带上（AppRoot 的崩溃附带反馈也复用） */
+internal fun feedbackTemplate(context: Context): String {
+    val version = runCatching {
+        context.packageManager.getPackageInfo(context.packageName, 0).versionName
+    }.getOrNull() ?: "未知"
+    return """
+        你好，我在使用「原点助手」时遇到问题/有一些建议：
+
+        1. 问题描述：
+        （发生了什么？比如：点开学期课表会闪退）
+
+        2. 怎么操作的：
+        （比如：打开课表 → 点右上角「学期课表」）
+
+        3. 希望的效果：
+        （比如：能正常打开）
+
+        4. 手机型号 / 系统版本：
+        （比如：红米 Note 12 / 澎湃OS）
+
+        5. App 版本：v$version
+
+        6. 截图（可选，方便的话附一张）
+    """.trimIndent()
+}
+
+/** 圆形头像：优先用户上传（filesDir/avatar.jpg），否则内置默认图。点击触发更换。 */
+@Composable
+private fun Avatar(size: androidx.compose.ui.unit.Dp, version: Int, onClick: () -> Unit) {
+    val context = LocalContext.current
+    val bitmap = remember(version) {
+        AvatarStore.load(context)
+    }
+    Box(
+        Modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primaryContainer, CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = "头像",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+        } else {
+            cn.edu.xyc.campus.ui.components.ThemeImage(
+                key = "avatar_default",
+                resId = R.drawable.avatar_default,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+        }
+    }
+}
+
+@Composable
+private fun InfoRow(label: String, value: String) {
+    Row(
+        Modifier
+            .fillMaxSize()
+            .padding(vertical = 6.dp),
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            value.ifEmpty { "—" },
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
