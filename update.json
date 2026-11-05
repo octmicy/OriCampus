@@ -1,5 +1,5 @@
 {
-  "version": "0.5.0",
-  "url": "https://github.com/octmicy/OriCampus/releases/download/v0.5.0/oricampus-v0.5.0.apk",
-  "notes": "更名「原点助手」；新增「今天吃什么」28 品类转盘（按组筛选、最近吃过降权、暖砂/深瓷两套皮肤）；首次启动新增隐私说明，可自行决定是否允许匿名统计；课表冷启动秒开、后台静默重登不再清空缓存"
+  "version": "0.5.1",
+  "url": "https://github.com/octmicy/OriCampus/releases/download/v0.5.1/oricampus-v0.5.1.apk",
+  "notes": "本次更换签名证书：从 0.5.0 及更早版本升级请先卸载旧版再安装，否则会提示「应用未安装」。新增：登录页支持系统密码自动填充、反馈改为 QQ 交流群 1131316553、课程小组件点击直达课表、图书馆小组件换新图标"
 }
