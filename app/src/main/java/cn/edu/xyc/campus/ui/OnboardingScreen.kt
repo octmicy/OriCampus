@@ -97,7 +97,7 @@ fun OnboardingScreen(onDone: () -> Unit) {
                     Spacer(Modifier.height(18.dp))
                     Text("原点助手", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color(0xFF173A6B))
                     Text(
-                        "新余学院校园服务",
+                        "校园服务",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

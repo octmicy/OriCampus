@@ -141,7 +141,7 @@ fun LoginScreen(
                 color = Color(0xFF173A6B),
             )
             Text(
-                "新余学院校园服务",
+                "校园服务",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

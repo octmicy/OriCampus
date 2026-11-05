@@ -37,7 +37,7 @@ Android Studio 直接打开即可。命令行（需 JDK 17 + Android SDK 34）�
 项目根目录放置 `keystore.properties`（已被 .gitignore 排除，不会入库）：
 
 ```properties
-storeFile=xyc-release.jks
+storeFile=oricampus-release.jks
 storePassword=你的密码
 keyAlias=你的别名
 keyPassword=你的密码

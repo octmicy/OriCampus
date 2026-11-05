@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
 /**
  * Open-Meteo 天气查询（免 key 公开接口）。
  *
- * 固定使用新余坐标（27.81, 114.93），不申请定位权限；查询当前天气与今日最高/最低温。
+ * 固定使用学校所在地坐标（27.81, 114.93），不申请定位权限；查询当前天气与今日最高/最低温。
  * 进程内缓存 30 分钟：窗口内直接返回缓存；请求失败/超时返回 null（调用方隐藏天气卡片），
  * 但不清除旧缓存与时间戳，待窗口过期后由下一次调用重新发起请求。
  */
@@ -24,7 +24,7 @@ object WeatherApi {
         val desc: String,
     )
 
-    /** 新余市固定坐标（不申请定位权限） */
+    /** 学校所在地固定坐标（不申请定位权限） */
     private const val URL =
         "https://api.open-meteo.com/v1/forecast" +
             "?latitude=27.81&longitude=114.93&current_weather=true" +
@@ -37,7 +37,7 @@ object WeatherApi {
     private var lastFetchAt = 0L
 
     /**
-     * 查询新余当前天气。
+     * 查询当前天气。
      *
      * 先查进程内缓存：距上次成功拉取不足 30 分钟直接命中返回；
      * 否则请求网络，成功后更新缓存与时间戳。

@@ -397,7 +397,7 @@ private fun GradientHeader(
                     color = Color.White,
                 )
                 Text(
-                    "${w.desc} · 最高${w.maxC}° 最低${w.minC}° · 新余",
+                    "${w.desc} · 最高${w.maxC}° 最低${w.minC}°",
                     fontSize = 12.sp,
                     color = Color.White,
                     textAlign = TextAlign.End,
