@@ -1,6 +1,6 @@
 {
   "version": "0.5.2",
-  "url": "https://cnb.cool/OriCampus/OriCampus/-/releases/download/v0.5.2/oricampus-v0.5.2.apk",
-  "fallback_url": "https://github.com/octmicy/OriCampus/releases/download/v0.5.2/oricampus-v0.5.2.apk",
+  "url": "https://github.com/octmicy/OriCampus/releases/download/v0.5.2/oricampus-v0.5.2.apk",
+  "fallback_url": "https://cnb.cool/OriCampus/OriCampus/-/releases/download/v0.5.2/oricampus-v0.5.2.apk",
   "notes": "更新检查改为 CNB 优先，国内下载更快；登录页支持系统密码自动填充；反馈改为 QQ 交流群 1131316553；课程小组件点击直达课表；图书馆小组件换新图标"
 }
