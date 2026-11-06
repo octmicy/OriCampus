@@ -48,8 +48,9 @@ object UpdateChecker {
     fun downloadMirrors(base: String): List<String> =
         proxyHosts.map { it + base } + base
 
-    // 静态 CDN 兜底（仓库根 update.json，与 api 结构字段一致：version/url/notes）
+    // 静态清单：CNB 仓库优先（国内直连快，实测 /-/git/raw/ 可匿名读），GitHub 的 jsDelivr / raw 兜底
     private val staticEndpoints = listOf(
+        "https://cnb.cool/OriCampus/OriCampus/-/git/raw/main/update.json",
         "https://cdn.jsdelivr.net/gh/octmicy/OriCampus@main/update.json",
         "https://fastly.jsdelivr.net/gh/octmicy/OriCampus@main/update.json",
         "https://raw.githubusercontent.com/octmicy/OriCampus/main/update.json",
