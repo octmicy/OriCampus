@@ -10,11 +10,11 @@ import java.util.concurrent.TimeUnit
 
 /**
  * 版本更新检查。
- * 策略：镜像源优先、多节点冗余、短超时快速切换、CDN 兜底——保证尽量收得到更新提示。
+ * 策略：CNB 优先、GitHub 兜底、多节点冗余、短超时快速切换。
  *
- * 1) API 镜像池（社区加速节点，前缀 + GitHub API 原路径），任一可用即返回
- * 2) 静态 CDN 兜底：仓库根 update.json（发版时随代码更新），走 jsDelivr/Fastly/原生 raw
- * 3) GitHub 直连放最后（国内大概率连不上，但海外用户可用）
+ * 1) 版本清单 update.json（jsDelivr / raw，字段 version/url/fallback_url/notes）
+ * 2) url 指向 CNB Release 附件（cnb.cool），下载前先 HEAD 探测；不通就退回 fallback_url（GitHub）
+ * 3) GitHub API 镜像池保留，作为清单本身拿不到时的兜底
  *
  * 所有请求 8s 连接 / 10s 读取超时，单个节点失败立即切下一个。
  */
@@ -22,9 +22,10 @@ object UpdateChecker {
 
     data class UpdateInfo(
         val version: String,
-        val downloadUrl: String,   // 原始 GitHub 直链
+        val downloadUrl: String,   // 首选下载地址（现在指向 CNB Release 附件）
         val notes: String,
-        val proxyPrefix: String?,  // 检测更新时验证可用的镜像前缀，下载复用同一镜像
+        val proxyPrefix: String?,  // 仅 GitHub 直链需要镜像前缀；CNB 直连时为 null
+        val fallbackUrl: String? = null, // 首选地址不可达时的备用地址（GitHub）
     )
 
     private const val LATEST_PATH = "repos/octmicy/OriCampus/releases/latest"
@@ -96,18 +97,31 @@ object UpdateChecker {
             val obj = JSONObject(resp.body?.string().orEmpty())
             val version = obj.optString("version")
             if (version.isEmpty()) return@use null
-            // 静态 CDN 走通说明用户可达该 CDN，但下载仍需镜像代理 GitHub，取首个镜像为最优猜测
+            val primary = obj.optString("url")
+            val fallback = obj.optString("fallback_url").ifEmpty { null }
+            // CNB 直连优先；首选地址探测不通就退回 GitHub（镜像前缀只对 GitHub 生效）
+            val useCnb = primary.isNotEmpty() && primary.contains("cnb.cool") && isReachable(primary)
+            val url = when {
+                useCnb -> primary
+                fallback != null -> fallback
+                primary.isNotEmpty() -> primary
+                else -> "https://github.com/octmicy/OriCampus/releases/latest"
+            }
             UpdateInfo(
                 version = version,
-                downloadUrl = obj.optString(
-                    "url",
-                    "https://github.com/octmicy/OriCampus/releases/latest",
-                ),
+                downloadUrl = url,
                 notes = obj.optString("notes"),
-                proxyPrefix = proxyHosts.firstOrNull(),
+                proxyPrefix = if (url.contains("cnb.cool")) null else proxyHosts.firstOrNull(),
+                fallbackUrl = fallback,
             )
         }
     }.getOrNull()
+
+    /** 轻量探测下载地址是否可达（HEAD，跟随跳转），5 秒超时 */
+    private fun isReachable(url: String): Boolean = runCatching {
+        val req = Request.Builder().url(url).head().build()
+        client.newCall(req).execute().use { it.code in 200..399 }
+    }.getOrDefault(false)
 
     /** 版本号比较：按 '.' 分段数值比较，如 0.2.4 < 0.3.0 */
     fun isNewer(latest: String, current: String): Boolean {

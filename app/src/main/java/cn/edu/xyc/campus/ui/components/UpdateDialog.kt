@@ -21,7 +21,7 @@ import cn.edu.xyc.campus.data.remote.UpdateChecker
 
 /**
  * 发现新版本弹窗：标题带版本号，正文为发布说明。
- * 点「更新」直接用检测更新时验证可用的镜像源下载（检测通了下载就通），官方直连仅作兜底说明。
+ * 点「更新」直接用检测更新时验证可用的地址下载；CNB 直连，GitHub 走镜像。
  * onIgnored / onNeverRemind 传 null 时隐藏对应按钮（手动检查不需要）。
  */
 @Composable
@@ -51,7 +51,7 @@ fun UpdateDialog(
                 )
                 Spacer(Modifier.padding(top = 6.dp))
                 Text(
-                    "将通过${if (proxyPrefix != null) "镜像源" else "官方直连"}下载安装包",
+                    "将通过${if (proxyPrefix != null) "镜像源" else "直连"}下载安装包",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
