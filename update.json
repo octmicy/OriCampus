@@ -1,6 +1,6 @@
 {
-  "version": "0.5.3",
-  "url": "https://github.com/octmicy/OriCampus/releases/download/v0.5.3/oricampus-v0.5.3.apk",
-  "fallback_url": "https://cnb.cool/OriCampus/OriCampus/-/releases/download/v0.5.3/oricampus-v0.5.3.apk",
-  "notes": "视觉大改：深空/晨光双主题、今日轨道头图、全套轨道图标与新启动器图标、动效；今天吃什么双皮肤；修复深色下多处文字不可见"
+  "version": "0.5.4",
+  "url": "https://github.com/octmicy/OriCampus/releases/download/v0.5.4/oricampus-v0.5.4.apk",
+  "fallback_url": "https://cnb.cool/OriCampus/OriCampus/-/releases/download/v0.5.4/oricampus-v0.5.4.apk",
+  "notes": "首页课程只显示今天，无课显示「今日无课」；登录页补齐深色模式并修复浅色文字对比度"
 }
