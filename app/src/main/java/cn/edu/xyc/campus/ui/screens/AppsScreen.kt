@@ -71,20 +71,21 @@ private data class AppEntry(
     val portalName: String,   // 与门户 /app/getApplication 返回的 name 匹配，也作为排序/显隐的持久化 key
     val label: String = portalName,
     val iconRes: Int,
+    val iconDarkRes: Int = iconRes, // 深色模式用的同款图标（描边改浅色）
     val finalHash: String? = null, // 应用内打开后 SPA 跳转的目标路由
     val native: Boolean = false,   // 原生页面入口，不走门户/WebView
     val comingSoon: Boolean = false, // 敬请期待占位：点击仅提示制作中
 )
 
 private val ALLOWED = listOf(
-    AppEntry("成绩查询", "成绩查询", R.drawable.nav_grades, native = true),
-    AppEntry("综测计算", "综测计算", R.drawable.app_zongce, native = true),
-    AppEntry("今天吃什么", "今天吃什么", R.drawable.app_food, native = true),
-    AppEntry("教务系统", iconRes = R.drawable.app_jwxt),
-    AppEntry("就业系统", iconRes = R.drawable.app_career),
-    AppEntry("毕业生离校系统", iconRes = R.drawable.app_graduate),
-    AppEntry("学工系统", iconRes = R.drawable.app_xg),
-    AppEntry("网络教学系统", iconRes = R.drawable.app_online),
+    AppEntry("成绩查询", "成绩查询", R.drawable.app_grades, R.drawable.app_grades_dark, native = true),
+    AppEntry("综测计算", "综测计算", R.drawable.app_zongce, R.drawable.app_zongce_dark, native = true),
+    AppEntry("今天吃什么", "今天吃什么", R.drawable.app_food, R.drawable.app_food_dark, native = true),
+    AppEntry("教务系统", iconRes = R.drawable.app_jwxt, iconDarkRes = R.drawable.app_jwxt_dark),
+    AppEntry("就业系统", iconRes = R.drawable.app_career, iconDarkRes = R.drawable.app_career_dark),
+    AppEntry("毕业生离校系统", iconRes = R.drawable.app_graduate, iconDarkRes = R.drawable.app_graduate_dark),
+    AppEntry("学工系统", iconRes = R.drawable.app_xg, iconDarkRes = R.drawable.app_xg_dark),
+    AppEntry("网络教学系统", iconRes = R.drawable.app_online, iconDarkRes = R.drawable.app_online_dark),
 )
 
 private data class OpenTarget(val name: String, val url: String, val finalHash: String?)
@@ -357,7 +358,9 @@ private fun AppCell(
             contentAlignment = Alignment.Center,
         ) {
             Image(
-                painter = androidx.compose.ui.res.painterResource(entry.iconRes),
+                painter = androidx.compose.ui.res.painterResource(
+                    if (isAppDarkTheme()) entry.iconDarkRes else entry.iconRes,
+                ),
                 contentDescription = entry.label,
                 modifier = Modifier.fillMaxSize(),
             )

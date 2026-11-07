@@ -33,19 +33,22 @@ import cn.edu.xyc.campus.data.remote.JwxtApi
 import cn.edu.xyc.campus.data.remote.JwxtResult
 import cn.edu.xyc.campus.data.remote.TermUtils
 import cn.edu.xyc.campus.ui.components.ThemeImage
+import cn.edu.xyc.campus.ui.theme.isAppDarkTheme
 
-private data class Tab(val key: String, val iconRes: Int, val label: String)
+private data class Tab(val key: String, val iconRes: Int, val iconDarkRes: Int, val label: String)
 
 // 4 tab：首页居左二；成绩已移入「应用」宫格，不再占底部导航
 private val TABS = listOf(
-    Tab("nav_schedule", R.drawable.nav_schedule, "课表"),
-    Tab("nav_home", R.drawable.nav_home, "首页"),
-    Tab("nav_apps", R.drawable.nav_apps, "应用"),
-    Tab("nav_profile", R.drawable.nav_profile, "我的"),
+    Tab("nav_schedule", R.drawable.nav_schedule, R.drawable.nav_schedule_dark, "课表"),
+    Tab("nav_home", R.drawable.nav_home, R.drawable.nav_home_dark, "首页"),
+    Tab("nav_apps", R.drawable.nav_apps, R.drawable.nav_apps_dark, "应用"),
+    Tab("nav_profile", R.drawable.nav_profile, R.drawable.nav_profile_dark, "我的"),
 )
 
 @Composable
 fun MainTabs(onLogout: () -> Unit) {
+    val dark = isAppDarkTheme()
+
     // 默认落在首页（索引 1）
     var selected by rememberSaveable { mutableStateOf(1) }
 
@@ -105,7 +108,7 @@ fun MainTabs(onLogout: () -> Unit) {
                         icon = {
                             ThemeImage(
                                 key = tab.key,
-                                resId = tab.iconRes,
+                                resId = if (dark) tab.iconDarkRes else tab.iconRes,
                                 contentDescription = tab.label,
                                 modifier = Modifier
                                     .size(30.dp)
