@@ -1,6 +1,6 @@
 {
-  "version": "0.5.4",
-  "url": "https://github.com/octmicy/OriCampus/releases/download/v0.5.4/oricampus-v0.5.4.apk",
-  "fallback_url": "https://cnb.cool/OriCampus/OriCampus/-/releases/download/v0.5.4/oricampus-v0.5.4.apk",
-  "notes": "首页课程只显示今天，无课显示「今日无课」；登录页补齐深色模式并修复浅色文字对比度"
+  "version": "0.5.5",
+  "url": "https://github.com/octmicy/OriCampus/releases/download/v0.5.5/oricampus-v0.5.5.apk",
+  "fallback_url": "https://cnb.cool/OriCampus/OriCampus/-/releases/download/v0.5.5/oricampus-v0.5.5.apk",
+  "notes": "头像裁剪即时保存；首页头图半透明；轨道光点按真实时间转动（整圈24小时）；每日摘录自动刷新"
 }
