@@ -1,6 +1,6 @@
 {
-  "version": "0.5.5",
-  "url": "https://github.com/octmicy/OriCampus/releases/download/v0.5.5/oricampus-v0.5.5.apk",
-  "fallback_url": "https://cnb.cool/OriCampus/OriCampus/-/releases/download/v0.5.5/oricampus-v0.5.5.apk",
-  "notes": "头像裁剪即时保存；首页头图半透明；轨道光点按真实时间转动（整圈24小时）；每日摘录自动刷新"
+  "version": "0.5.6",
+  "url": "https://github.com/octmicy/OriCampus/releases/download/v0.5.6/oricampus-v0.5.6.apk",
+  "fallback_url": "https://cnb.cool/OriCampus/OriCampus/-/releases/download/v0.5.6/oricampus-v0.5.6.apk",
+  "notes": "紧急修复：关闭系统动画时进入主页卡死（轨道光点循环忙等）"
 }
